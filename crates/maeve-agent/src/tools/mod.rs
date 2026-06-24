@@ -146,6 +146,7 @@ impl Tool for ListWorkflows {
 pub fn all_tools() -> Vec<Box<dyn Tool>> {
     vec![
         Box::new(self_report_tools::SelfReport),
+        Box::new(super::memory_tools::Recall),
         Box::new(ListAgenda),
         Box::new(ListGoals),
         Box::new(ListRules),
