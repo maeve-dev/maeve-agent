@@ -1,3 +1,5 @@
+pub mod self_report_tools;
+
 use anyhow::Result;
 use serde_json::{json, Value};
 
@@ -20,47 +22,6 @@ pub trait Tool: Send + Sync {
     /// Execute the tool with the given arguments (JSON value) and the current
     /// agent context.  Returns a JSON value to send back to the LLM.
     fn call(&self, _args: Value, _ctx: &AgentContext) -> Result<Value>;
-}
-
-// ---------------------------------------------------------------------------
-// Tool: self_report
-// ---------------------------------------------------------------------------
-
-pub struct SelfReport;
-
-impl Tool for SelfReport {
-    fn name(&self) -> &'static str {
-        "self_report"
-    }
-
-    fn description(&self) -> &'static str {
-        "Returns a comprehensive JSON snapshot of the agent's current state, including version, turn count, goals, agenda, rumination digest, and configuration."
-    }
-
-    fn parameters(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {},
-            "additionalProperties": false
-        })
-    }
-
-    fn call(&self, _args: Value, ctx: &AgentContext) -> Result<Value> {
-        Ok(json!({
-            "version": env!("CARGO_PKG_VERSION"),
-            "turn_count": ctx.turn_count,
-            "goals": ctx.goals,
-            "agenda": ctx.agenda,
-            "rumination_digest": ctx.rumination_digest,
-            "config": {
-                "agent.provider": ctx.config.provider,
-                "agent.chat_model": ctx.config.chat_model,
-                "agent.default_model": ctx.config.default_model,
-                "agent.idle_interval_secs": ctx.config.idle_interval_secs,
-                "agent.context_budget": ctx.config.context_budget,
-            }
-        }))
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -184,7 +145,7 @@ impl Tool for ListWorkflows {
 /// Returns all registered tools.
 pub fn all_tools() -> Vec<Box<dyn Tool>> {
     vec![
-        Box::new(SelfReport),
+        Box::new(self_report_tools::SelfReport),
         Box::new(ListAgenda),
         Box::new(ListGoals),
         Box::new(ListRules),
@@ -218,7 +179,7 @@ mod tests {
     use crate::config::Config;
     use crate::context::AgentContext;
     use crate::goals::{Goal, GoalStatus};
-    use crate::tools::{dispatch_tool, Tool, SelfReport};
+    use crate::tools::{dispatch_tool, self_report_tools::SelfReport, Tool};
 
     #[test]
     fn test_self_report_basic() {
@@ -230,7 +191,7 @@ mod tests {
         assert_eq!(obj["turn_count"], json!(0));
         assert_eq!(obj["goals"], json!([]));
         assert_eq!(obj["agenda"], json!([]));
-        assert_eq!(obj["rumination_digest"], json!(null));
+        assert_eq!(obj["rumination"], json!(null));
     }
 
     #[test]
@@ -263,7 +224,7 @@ mod tests {
             obj["agenda"],
             json!([{"id": "a1", "description": "Test agenda item", "status": "Pending", "priority": 1}])
         );
-        assert_eq!(obj["rumination_digest"], json!("Thinking about things..."));
+        assert_eq!(obj["rumination"], json!("Thinking about things..."));
     }
 
     #[test]
